@@ -5,7 +5,7 @@ const port = 3000;
 
 
 
-const authRoute = require('./routes/authRoute');
+// const authRoute = require('./routes/authRoute');
 
 
 

@@ -20,7 +20,6 @@ export const register = async (req, res) => {
       password,
     } = req.body;
 
-    // You can add validation logic here if needed
 
     const newUser = new UserModel({
       firstName,

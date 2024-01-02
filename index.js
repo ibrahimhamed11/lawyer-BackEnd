@@ -3,8 +3,14 @@ const express = require('express');
 const app = express();
 const port = 3000;
 
-app.get('/', (req, res) => {
-  res.send('Hello, Lawyer!');
+
+
+const authRoute = require('./routes/authRoute');
+
+
+
+app.get('/lawyer-BackEnd/', (req, res) => {
+  res.send('Hello, Lawyer app!');
 });
 
 app.listen(port, () => {

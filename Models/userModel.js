@@ -1,22 +1,36 @@
-const mongoose = require('mongoose');
+// models/userModel.js
+const { Sequelize, DataTypes } = require('sequelize');
 
-const userSchema = new mongoose.Schema({
-  firstName: { type: String, required: true },
-  lastName: { type: String, required: true },
-  email: { type: String, required: true },
-  phone: { type: String, required: true },
-  country: { type: String, required: true },
-  countryCode: { type: String, required: true },
-  gender: { type: String, enum: ['male', 'female', 'other'], required: true },
-  address: { type: String, required: true },
-  password: { type: String, required: true },
-  role: { type: String, default: 'user' },
-  emailVerification: {
-    code: { type: String, required: true },
-    verified: { type: Boolean, default: false },
-  },
+// Assuming your database configuration is in the same file
+const sequelize = new Sequelize({
+  dialect: 'mysql',
+  host: process.env.DB_HOST || 'localhost',
+  username: process.env.DB_USER || 'cryptopa_lawyerApp',
+  password: process.env.DB_PASSWORD || 'XKO&1y;O{()U',
+  database: process.env.DB_NAME || 'nodeJs',
+  logging: false,
 });
 
-const UserModel = mongoose.model('User', userSchema);
+const User = sequelize.define('User', {
+  firstName: { type: DataTypes.STRING, allowNull: false },
+  lastName: { type: DataTypes.STRING, allowNull: false },
+  email: { type: DataTypes.STRING, allowNull: false, unique: true },
+  phone: { type: DataTypes.STRING, allowNull: false },
+  country: { type: DataTypes.STRING, allowNull: false },
+  countryCode: { type: DataTypes.STRING, allowNull: false },
+  gender: { type: DataTypes.STRING, allowNull: false, validate: { isIn: [['male', 'female', 'other']] } },
+  address: { type: DataTypes.STRING, allowNull: false },
+  password: { type: DataTypes.STRING, allowNull: false },
+  role: { type: DataTypes.STRING, defaultValue: 'user' },
+});
 
-module.exports = UserModel;
+const EmailVerification = sequelize.define('EmailVerification', {
+  code: { type: DataTypes.STRING, allowNull: false },
+  verified: { type: DataTypes.BOOLEAN, defaultValue: false },
+});
+
+// Define associations
+User.hasOne(EmailVerification, { foreignKey: 'userId' });
+EmailVerification.belongsTo(User, { foreignKey: 'userId' });
+
+module.exports = { sequelize, User, EmailVerification };

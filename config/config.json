@@ -1,0 +1,10 @@
+{
+  "development": {
+    "username": "cryptopa_lawyerApp", 
+    "password": "XKO&1y;O{()U",      
+    "database": "cryptopa_lawyerApp",
+    "host": "http://57.129.2.118/",
+    "dialect": "mysql"
+  }
+
+}

@@ -1,12 +1,13 @@
-// lawyer/src/controllers/user.js
-const UserModel = require('../models/userModel');
+// controllers/userController.js
+const { User, EmailVerification } = require('../models/userModel');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
+const jwt = require('jsonwebtoken');
 
-const generateOTP = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
 
+
+
+// Nodemailer transporter
 const transporter = nodemailer.createTransport({
   host: process.env.MAIL_HOST,
   port: process.env.MAIL_PORT,
@@ -17,6 +18,12 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Generate OTP function
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Send verification email function
 const sendVerificationEmail = async (email, otp, lang) => {
   const mailOptions = {
     from: '"محامي" <contact@cryptopaydubai.net>',
@@ -29,10 +36,12 @@ const sendVerificationEmail = async (email, otp, lang) => {
   await transporter.sendMail(mailOptions);
 };
 
+// Get language from headers function
 const getLanguageFromHeaders = (headers) => {
   return headers['lang'] || 'en';
 };
 
+// Error messages
 const errorMessages = {
   en: {
     userNotFound: 'User not found.',
@@ -54,6 +63,7 @@ const errorMessages = {
   },
 };
 
+// User registration function
 const registerUser = async (req, res) => {
   try {
     const {
@@ -71,13 +81,14 @@ const registerUser = async (req, res) => {
     const lang = getLanguageFromHeaders(req.headers);
 
     // Check if the user with the provided email already exists
-    const existingUser = await UserModel.findOne({ email });
+    const existingUser = await User.findOne({ where: { email } });
 
     if (existingUser) {
       return res.status(400).json({ error: errorMessages[lang].userAlreadyExists });
     }
 
-    const newUser = new UserModel({
+    // Create a new user
+    const newUser = await User.create({
       firstName,
       lastName,
       email,
@@ -87,13 +98,15 @@ const registerUser = async (req, res) => {
       gender,
       address,
       password,
-      emailVerification: {
-        code: otp,
-        verified: false,
-      },
     });
 
-    await newUser.save();
+    // Create email verification record
+    await EmailVerification.create({
+      code: otp,
+      verified: false,
+      userId: newUser.id,
+    });
+
     await sendVerificationEmail(email, otp, lang);
 
     res.json({ message: lang === 'ar' ? 'تم تسجيل المستخدم. تحقق من بريدك الإلكتروني للتحقق.' : 'User registered. Check your email for verification.' });
@@ -104,27 +117,33 @@ const registerUser = async (req, res) => {
   }
 };
 
+// Email verification function
 const verifyEmail = async (req, res) => {
   try {
     const { email, otp } = req.body;
     const lang = getLanguageFromHeaders(req.headers);
 
-    const user = await UserModel.findOne({ email });
+    // Find the user with the provided email
+    const user = await User.findOne({ where: { email } });
 
     if (!user) {
       return res.status(404).json({ error: errorMessages[lang].userNotFound });
     }
 
-    if (user.emailVerification.verified) {
+    // Check if email is already verified
+    const emailVerification = await EmailVerification.findOne({ where: { userId: user.id } });
+    if (emailVerification.verified) {
       return res.json({ message: errorMessages[lang].emailAlreadyVerified });
     }
 
-    if (user.emailVerification.code !== otp) {
+    // Check if the provided OTP is correct
+    if (emailVerification.code !== otp) {
       return res.status(400).json({ error: errorMessages[lang].invalidOTP });
     }
 
-    user.emailVerification.verified = true;
-    await user.save();
+    // Update email verification status
+    emailVerification.verified = true;
+    await emailVerification.save();
 
     res.json({ message: lang === 'ar' ? 'تم التحقق من البريد الإلكتروني بنجاح.' : 'Email verified successfully.' });
   } catch (error) {
@@ -134,26 +153,44 @@ const verifyEmail = async (req, res) => {
   }
 };
 
+
+
+
+// User login function with JWT token
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
     const lang = getLanguageFromHeaders(req.headers);
-
-    const user = await UserModel.findOne({ email });
+    const user = await User.findOne({ where: { email } });
 
     if (!user) {
       return res.status(404).json({ error: errorMessages[lang].userNotFound });
-    }
-
-    if (!user.emailVerification.verified) {
-      return res.status(401).json({ error: errorMessages[lang].emailNotVerified });
     }
 
     if (user.password !== password) {
       return res.status(401).json({ error: errorMessages[lang].incorrectPassword });
     }
 
-    res.json({ message: 'Login successful.' });
+    // Create and sign a JWT token
+    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, {
+      expiresIn: '100h', // Token expiration time
+    });
+
+    // Exclude password from user data in the response
+    const userData = {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      country: user.country,
+      countryCode: user.countryCode,
+      gender: user.gender,
+      address: user.address,
+      role: user.role,
+    };
+
+    res.json({ message: lang === 'ar' ? 'تم تسجيل الدخول بنجاح.' : 'Login successful.', token, user: userData });
   } catch (error) {
     console.error(error);
     const lang = getLanguageFromHeaders(req.headers);

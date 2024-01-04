@@ -5,13 +5,25 @@ const { Sequelize, DataTypes } = require('sequelize');
 const sequelize = new Sequelize({
   dialect: 'mysql',
   host: process.env.DB_HOST || 'localhost',
-  username: process.env.DB_USER || 'cryptopa_lawyerApp',
-  password: process.env.DB_PASSWORD || 'XKO&1y;O{()U',
+  username: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'nodeJs',
   logging: false,
 });
 
-const User = sequelize.define('User', {
+
+sequelize
+  .authenticate()
+  .then(() => {
+    console.log('Connection to the database successfully.');
+  })
+  .catch((err) => {
+    console.error('Unable to connect to the database:', err);
+  });
+
+
+
+const User = sequelize.define('users', {
   firstName: { type: DataTypes.STRING, allowNull: false },
   lastName: { type: DataTypes.STRING, allowNull: false },
   email: { type: DataTypes.STRING, allowNull: false, unique: true },
@@ -24,7 +36,7 @@ const User = sequelize.define('User', {
   role: { type: DataTypes.STRING, defaultValue: 'user' },
 });
 
-const EmailVerification = sequelize.define('EmailVerification', {
+const EmailVerification = sequelize.define('EmailVerifications', {
   code: { type: DataTypes.STRING, allowNull: false },
   verified: { type: DataTypes.BOOLEAN, defaultValue: false },
 });

@@ -1,9 +1,9 @@
 {
   "development": {
     "username": "cryptopa_lawyerApp", 
-    "password": "XKO&1y;O{()U",      
+    "password": "DW,C7nx)feUn",      
     "database": "cryptopa_lawyerApp",
-    "host": "localhost",
+    "host": "https://cryptopaydubai.net:2083",
     "dialect": "mysql"
   }
 

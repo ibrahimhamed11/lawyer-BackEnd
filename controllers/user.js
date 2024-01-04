@@ -1,27 +1,15 @@
 // controllers/userController.js
-const { User, EmailVerification } = require('../models/userModel');
-const nodemailer = require('nodemailer');
-require('dotenv').config();
+const { User, EmailVerification } = require('../Models/userModel');
 const jwt = require('jsonwebtoken');
+const transporter = require('../config/cradentials'); // Importing the transporter from credentials.js
+const bcrypt = require('bcryptjs');
 
 
-
-
-// Nodemailer transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.MAIL_HOST,
-  port: process.env.MAIL_PORT,
-  secure: process.env.MAIL_SECURE,
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASSWORD,
-  },
-});
-
-// Generate OTP function
+// Generate 4-digit OTP function
 const generateOTP = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return Math.floor(1000 + Math.random() * 9000).toString();
 };
+
 
 // Send verification email function
 const sendVerificationEmail = async (email, otp, lang) => {
@@ -63,6 +51,7 @@ const errorMessages = {
   },
 };
 
+
 // User registration function
 const registerUser = async (req, res) => {
   try {
@@ -87,7 +76,10 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ error: errorMessages[lang].userAlreadyExists });
     }
 
-    // Create a new user
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create a new user with hashed password
     const newUser = await User.create({
       firstName,
       lastName,
@@ -97,7 +89,7 @@ const registerUser = async (req, res) => {
       countryCode,
       gender,
       address,
-      password,
+      password: hashedPassword, // Store the hashed password
     });
 
     // Create email verification record
@@ -116,6 +108,12 @@ const registerUser = async (req, res) => {
     res.status(500).json({ error: errorMessages[lang].internalServerError });
   }
 };
+
+
+
+
+
+
 
 // Email verification function
 const verifyEmail = async (req, res) => {
@@ -171,8 +169,14 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ error: errorMessages[lang].incorrectPassword });
     }
 
+    // Check if the user is verified
+    const emailVerification = await EmailVerification.findOne({ where: { userId: user.id } });
+
+    // Check if the user is active (verified)
+    const isActive = emailVerification ? emailVerification.verified : false;
+
     // Create and sign a JWT token
-    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ userId: user.id, role: user.role }, 'lawyer', {
       expiresIn: '100h', // Token expiration time
     });
 
@@ -188,6 +192,7 @@ const loginUser = async (req, res) => {
       gender: user.gender,
       address: user.address,
       role: user.role,
+      isActive:isActive
     };
 
     res.json({ message: lang === 'ar' ? 'تم تسجيل الدخول بنجاح.' : 'Login successful.', token, user: userData });

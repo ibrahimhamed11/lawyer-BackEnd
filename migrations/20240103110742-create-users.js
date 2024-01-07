@@ -50,6 +50,14 @@ module.exports = {
         type: Sequelize.STRING,
         defaultValue: 'user',
       },
+      resetOtp: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
+      resetOtpExpiration: {
+        type: Sequelize.DATE,
+        allowNull: true,
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE,

@@ -12,16 +12,34 @@ const generateOTP = () => {
 
 
 // Send verification email function
-const sendVerificationEmail = async (email, otp, lang) => {
+const sendVerificationEmail = async (email, otp, lang, action) => {
+  let subject, text, html;
+
+  
+  if (action === 'confirmEmail') {
+    subject = lang === 'ar' ? 'كود تأكيد البريد الإلكتروني' : 'Email Verification Code';
+    text = lang === 'ar' ? `كود التحقق الخاص بك لتأكيد البريد الإلكتروني: ${otp}` : `Your email verification code: ${otp}`;
+    html = lang === 'ar' ? `<p>كود التحقق الخاص بك لتأكيد البريد الإلكتروني: <strong>${otp}</strong></p>` : `<p>Your email verification code: <strong>${otp}</strong></p>`;
+  } else if (action === 'resetPassword') {
+    subject = lang === 'ar' ? 'كود إعادة تعيين كلمة المرور' : 'Password Reset Code';
+    text = lang === 'ar' ? `كود التحقق الخاص بك لإعادة تعيين كلمة المرور: ${otp}` : `Your password reset code: ${otp}`;
+    html = lang === 'ar' ? `<p>كود التحقق الخاص بك لإعادة تعيين كلمة المرور: <strong>${otp}</strong></p>` : `<p>Your password reset code: <strong>${otp}</strong></p>`;
+  } else {
+    subject = lang === 'ar' ? 'كود تأكيد البريد الإلكتروني' : 'Email Verification Code';
+    text = lang === 'ar' ? `كود التحقق الخاص بك لتأكيد البريد الإلكتروني: ${otp}` : `Your email verification code: ${otp}`;
+    html = lang === 'ar' ? `<p>كود التحقق الخاص بك لتأكيد البريد الإلكتروني: <strong>${otp}</strong></p>` : `<p>Your email verification code: <strong>${otp}</strong></p>`;
+  }
+
   const mailOptions = {
     from: '"محامي" <contact@cryptopaydubai.net>',
     to: email,
-    subject: lang === 'ar' ? 'كود تأكيد البريد الإلكتروني' : 'Email Verification Code',
-    text: lang === 'ar' ? `كود التحقق الخاص بك لتأكيد البريد الإلكتروني: ${otp}` : `Your email verification code: ${otp}`,
-    html: lang === 'ar' ? `<p>كود التحقق الخاص بك لتأكيد البريد الإلكتروني: <strong>${otp}</strong></p>` : `<p>Your email verification code: <strong>${otp}</strong></p>`,
+    subject,
+    text,
+    html,
   };
 
   await transporter.sendMail(mailOptions);
+
 };
 
 // Get language from headers function
@@ -99,7 +117,7 @@ const registerUser = async (req, res) => {
       userId: newUser.id,
     });
 
-    await sendVerificationEmail(email, otp, lang);
+    await sendVerificationEmail(email, otp, lang, 'confirmEmail');
 
     res.json({ message: lang === 'ar' ? 'تم تسجيل المستخدم. تحقق من بريدك الإلكتروني للتحقق.' : 'User registered. Check your email for verification.' });
   } catch (error) {
@@ -154,33 +172,23 @@ const verifyEmail = async (req, res) => {
 
 
 
-// User login function with JWT token
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
     const lang = getLanguageFromHeaders(req.headers);
     const user = await User.findOne({ where: { email } });
-
     if (!user) {
       return res.status(404).json({ error: errorMessages[lang].userNotFound });
     }
-
-    if (user.password !== password) {
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
       return res.status(401).json({ error: errorMessages[lang].incorrectPassword });
     }
-
-    // Check if the user is verified
     const emailVerification = await EmailVerification.findOne({ where: { userId: user.id } });
-
-    // Check if the user is active (verified)
     const isActive = emailVerification ? emailVerification.verified : false;
-
-    // Create and sign a JWT token
     const token = jwt.sign({ userId: user.id, role: user.role }, 'lawyer', {
-      expiresIn: '100h', // Token expiration time
+      expiresIn: '100h', 
     });
-
-    // Exclude password from user data in the response
     const userData = {
       id: user.id,
       firstName: user.firstName,
@@ -192,9 +200,8 @@ const loginUser = async (req, res) => {
       gender: user.gender,
       address: user.address,
       role: user.role,
-      isActive:isActive
+      isActive: isActive
     };
-
     res.json({ message: lang === 'ar' ? 'تم تسجيل الدخول بنجاح.' : 'Login successful.', token, user: userData });
   } catch (error) {
     console.error(error);
@@ -203,8 +210,217 @@ const loginUser = async (req, res) => {
   }
 };
 
+
+// Forgot Password: Retrieve phone number
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const lang = getLanguageFromHeaders(req.headers);
+
+    // Find the user with the provided email
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      return res.status(404).json({ error: errorMessages[lang].userNotFound });
+    }
+
+    res.json({ phoneNumber: user.phone });
+  } catch (error) {
+    console.error(error);
+    const lang = getLanguageFromHeaders(req.headers);
+    res.status(500).json({ error: errorMessages[lang].internalServerError });
+  }
+};
+
+
+
+// Send Reset OTP: Send OTP for password reset
+const sendResetOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const lang = getLanguageFromHeaders(req.headers);
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ error: errorMessages[lang].userNotFound });
+    }
+    const otp = generateOTP();
+    // Save the OTP and its expiration time in the user record
+    user.resetOtp = otp;
+    user.resetOtpExpiration = new Date(Date.now() + 60 * 60 * 1000); // Set OTP expiration to 1 hour
+    await user.save();
+    await sendVerificationEmail(email, otp, lang,"resetPassword");
+    const successMessage = {
+      en: 'Reset OTP sent successfully.',
+      ar: 'تم إرسال رمز التحقق لإعادة تعيين كلمة المرور بنجاح.'
+    };
+    res.json({ message: successMessage[lang] });
+  } catch (error) {
+    console.error(error);
+    const lang = getLanguageFromHeaders(req.headers);
+    const errorMessage = {
+      en: errorMessages[lang].internalServerError,
+      ar: 'حدث خطأ داخلي في الخادم.'
+    };
+    res.status(500).json({ error: errorMessage[lang] });
+  }
+};
+
+
+
+
+
+
+// Reset Password: Verify OTP with email and return user data and token
+const verifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const lang = getLanguageFromHeaders(req.headers);
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      return res.status(404).json({ error: errorMessages[lang].userNotFound });
+    }
+    if (user.resetOtp !== otp || new Date() > new Date(user.resetOtpExpiration)) {
+      return res.status(400).json({ error: errorMessages[lang].invalidOTP });
+    }
+    user.resetOtp = null;
+    user.resetOtpExpiration = null;
+    await user.save();
+    const token = jwt.sign({ userId: user.id, role: user.role }, 'lawyer', {
+      expiresIn: '100h',
+    });
+
+    const userData = {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      country: user.country,
+    };
+
+    const message = lang === 'ar'
+      ? 'تم التحقق من رمز OTP بنجاح.'
+      : 'OTP verification successful.';
+
+    res.json({ message, token, user: userData });
+  } catch (error) {
+    console.error(error);
+    const lang = getLanguageFromHeaders(req.headers);
+    res.status(500).json({ error: errorMessages[lang].internalServerError });
+  }
+};
+
+
+
+
+
+
+
+// Get User Info: Get user information
+const getUserInfo = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized - User ID not provided' });
+    }
+
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const token = req.headers.authorization;
+    const userData = {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      country: user.country,
+    };
+
+    res.json({ token, user: userData });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error.' });
+  }
+};
+
+
+
+
+
+
+
+// Update User Info: Update user information (including password if provided)
+const updateUserInfo = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { firstName, lastName, phone, country, oldPassword, newPassword } = req.body;
+    const lang = getLanguageFromHeaders(req.headers);
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: errorMessages[lang].userNotFound });
+    }
+    if (oldPassword) {
+      const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: errorMessages[lang].incorrectPassword });
+      }
+    }
+    if (firstName !== undefined) user.firstName = firstName;
+    if (lastName !== undefined) user.lastName = lastName;
+    if (phone !== undefined) user.phone = phone;
+    if (country !== undefined) user.country = country;
+
+    if (newPassword) {
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: errorMessages[lang].passwordTooShort });
+      }
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      user.password = hashedPassword;
+    }
+
+    await user.save();
+
+    const successMessage = {
+      en: 'User information updated successfully.',
+      ar: 'تم تحديث معلومات المستخدم بنجاح.'
+    };
+
+    const passwordMessage = newPassword
+      ? lang === 'ar' ? 'تم التحديث بنجاح.' : 'Updated successfully.'
+      : '';
+    res.json({ message: `${successMessage[lang]}` });
+  } catch (error) {
+    console.error(error);
+
+    const errorMessage = {
+      en: 'Internal Server Error.',
+      ar: 'خطأ داخلي في الخادم.'
+    };
+
+    const lang = getLanguageFromHeaders(req.headers); 
+    res.status(500).json({ error: errorMessage[lang] });
+  }
+};
+
+
+
+
+
 module.exports = {
   registerUser,
   verifyEmail,
   loginUser,
+  forgotPassword,
+  sendResetOTP,
+  verifyOTP,
+  getUserInfo,
+  updateUserInfo,
 };

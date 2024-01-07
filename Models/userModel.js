@@ -11,6 +11,18 @@ const sequelize = new Sequelize({
   logging: false,
 });
 
+
+
+// const sequelize = new Sequelize({
+//   dialect: 'mysql',
+//   host: process.env.DB_HOST || 'localhost',
+//   username: process.env.DB_USER || 'root',
+//   password: process.env.DB_PASSWORD || '',
+//   database: process.env.DB_NAME || 'lawyerApp',
+//   logging: false,
+// });
+
+
 sequelize
   .authenticate()
   .then(() => {
@@ -19,8 +31,6 @@ sequelize
   .catch((err) => {
     console.error('Unable to connect to the database:', err);
   });
-
-
 
 const User = sequelize.define('users', {
   firstName: { type: DataTypes.STRING, allowNull: false },
@@ -33,6 +43,8 @@ const User = sequelize.define('users', {
   address: { type: DataTypes.STRING, allowNull: false },
   password: { type: DataTypes.STRING, allowNull: false },
   role: { type: DataTypes.STRING, defaultValue: 'user' },
+  resetOtp: { type: DataTypes.STRING, allowNull: true }, // Added for password reset OTP
+  resetOtpExpiration: { type: DataTypes.DATE, allowNull: true }, // Added for OTP expiration
 });
 
 const EmailVerification = sequelize.define('EmailVerifications', {

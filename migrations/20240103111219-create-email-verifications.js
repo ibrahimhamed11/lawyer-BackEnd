@@ -28,7 +28,7 @@ module.exports = {
       userId: {
         type: Sequelize.INTEGER,
         references: {
-          model: 'Users', 
+          model: 'users', // Reference the 'users' table (case-sensitive)
           key: 'id',
         },
         onUpdate: 'CASCADE',

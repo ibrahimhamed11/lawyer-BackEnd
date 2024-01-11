@@ -16,5 +16,12 @@ router.post('/verify-otp', authController.verifyOTP);
 
 router.get('/user-info', authMiddleware, authController.getUserInfo); 
 router.put('/update-user', authMiddleware, authController.updateUserInfo); 
+router.put('/update-password', authMiddleware, authController.updatePassword);
+
+
+router.get('/all-users', authMiddleware, authController.getAllUsers);
+router.delete('/delete-user/:id', authMiddleware, authController.deleteUser);
+
+
 
 module.exports = router;

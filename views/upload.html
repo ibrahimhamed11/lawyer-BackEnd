@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Upload Test</title>
+  <style>
+    #loadingSpinner {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1000;
+    }
+
+    #loadingSpinner img {
+      width: 50px;
+      height: 50px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>File Upload Test</h1>
+
+  <form id="consultationForm" enctype="multipart/form-data">
+    <label for="priority">Priority:</label>
+    <input type="text" name="priority" required><br>
+
+    <label for="title">Title:</label>
+    <input type="text" name="title" required><br>
+
+    <label for="subject">Subject:</label>
+    <input type="text" name="subject" required><br>
+
+    <label for="status">Status:</label>
+    <input type="text" name="status" required><br>
+
+    <label for="voiceNote">Voice Note:</label>
+    <input type="file" name="voiceNote" accept=".mp3, .wav"><br>
+    
+    <label for="files">Files:</label>
+    <input type="file" name="files" accept=".pdf, .doc, .docx, .jpeg, .jpg, .png" multiple><br>
+
+    <label for="consultationSpecialization">Consultation Specialization:</label>
+    <input type="text" name="consultationSpecialization"><br>
+
+    <label for="basePrice">Base Price:</label>
+    <input type="number" name="basePrice"><br>
+
+
+    
+    <label for="basePrice">Negotiation Price:</label>
+    <input type="number" name="negotiationPrice"><br>
+
+
+
+    <input type="submit" value="Submit">
+  </form>
+
+  <div id="loadingSpinner">
+    <img src="loading.gif" alt="Loading Spinner">
+  </div>
+
+  <script>
+    document.getElementById('consultationForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      const formData = new FormData(this);
+      const loadingSpinner = document.getElementById('loadingSpinner');
+
+      // Show loading spinner
+      loadingSpinner.style.display = 'block';
+
+      // Add your bearer token here
+      const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzA0OTY2MDAwLCJleHAiOjE3MDUzMjYwMDB9.iLkv9JbB3re2f_mjjf4YADa9lGsZkZpDAaGUsVYmQiE';
+
+      fetch('http://localhost:5000/LawyerApi/consultations', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`
+          // Add other headers if needed
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log(data);
+        // Handle success response
+
+        // Hide loading spinner
+        loadingSpinner.style.display = 'none';
+      })
+      .catch(error => {
+        console.error(error);
+        // Handle error
+
+        // Hide loading spinner
+        loadingSpinner.style.display = 'none';
+      });
+    });
+  </script>
+
+
+</body>
+</html>

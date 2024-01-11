@@ -60,12 +60,12 @@ const errorMessages = {
   },
   ar: {
     userNotFound: 'المستخدم غير موجود.',
-    emailAlreadyVerified: 'البريد الإلكتروني مفعل بالفعل.',
+    emailAlreadyVerified: 'البريد الإلكتروني مفعل .',
     invalidOTP: 'رمز التحقق غير صحيح.',
     internalServerError: 'خطأ داخلي في الخادم.',
     emailNotVerified: 'البريد الإلكتروني غير مفعل.',
     incorrectPassword: 'كلمة المرور غير صحيحة.',
-    userAlreadyExists: 'المستخدم بتلك البريد الإلكتروني موجود بالفعل.',
+    userAlreadyExists: 'البريد الإلكتروني موجود بالفعل.',
   },
 };
 
@@ -83,6 +83,8 @@ const registerUser = async (req, res) => {
       gender,
       address,
       password,
+      specialization,
+      role,
     } = req.body;
     const otp = generateOTP();
     const lang = getLanguageFromHeaders(req.headers);
@@ -106,8 +108,10 @@ const registerUser = async (req, res) => {
       country,
       countryCode,
       gender,
-      address,
-      password: hashedPassword, // Store the hashed password
+      address,  
+      password: hashedPassword, 
+      specialization,
+      role
     });
 
     // Create email verification record
@@ -119,17 +123,30 @@ const registerUser = async (req, res) => {
 
     await sendVerificationEmail(email, otp, lang, 'confirmEmail');
 
-    res.json({ message: lang === 'ar' ? 'تم تسجيل المستخدم. تحقق من بريدك الإلكتروني للتحقق.' : 'User registered. Check your email for verification.' });
+    // Return user data along with the success message
+    res.json({
+      message: lang === 'ar' ? 'تم تسجيل المستخدم تحقق من بريدك  .' : 'User registered,Check your email.',
+      user: {
+        id: newUser.id,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        email: newUser.email,
+        phone: newUser.phone,
+        countryCode: newUser.countryCode,
+        gender: newUser.gender,
+        address: newUser.address,
+        country: newUser.country,
+        role:newUser.role,
+        specialization:newUser.specialization,
+
+      },
+    });
   } catch (error) {
     console.error(error);
     const lang = getLanguageFromHeaders(req.headers);
     res.status(500).json({ error: errorMessages[lang].internalServerError });
   }
 };
-
-
-
-
 
 
 
@@ -195,11 +212,12 @@ const loginUser = async (req, res) => {
       lastName: user.lastName,
       email: user.email,
       phone: user.phone,
-      country: user.country,
       countryCode: user.countryCode,
       gender: user.gender,
       address: user.address,
-      role: user.role,
+      country: user.country,
+      role:user.role,
+      specialization:user.specialization,
       isActive: isActive
     };
     res.json({ message: lang === 'ar' ? 'تم تسجيل الدخول بنجاح.' : 'Login successful.', token, user: userData });
@@ -411,6 +429,77 @@ const updateUserInfo = async (req, res) => {
 };
 
 
+const updatePassword = async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    const userId = req.userId; // Extract user ID from the authenticated token
+    const lang = getLanguageFromHeaders(req.headers);
+
+    // Find the user by ID
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: errorMessages[lang].userNotFound });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    // Update the user's password
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ message: lang === 'ar' ? 'تم تحديث كلمة المرور بنجاح.' : 'Password updated successfully.' });
+  } catch (error) {
+    console.error(error);
+    const lang = getLanguageFromHeaders(req.headers);
+    res.status(500).json({ error: errorMessages[lang].internalServerError });
+  }
+};
+
+
+
+
+
+const getAllUsers = async (req, res) => {
+  try {
+    const lang = getLanguageFromHeaders(req.headers);
+
+    // Find all users (excluding the password field)
+    const users = await User.findAll({
+      attributes: { exclude: ['password'] },
+    });
+
+    res.json(users);
+  } catch (error) {
+    console.error(error);
+    const lang = getLanguageFromHeaders(req.headers);
+    res.status(500).json({ error: errorMessages[lang].internalServerError });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    const userIdToDelete = req.params.id; // Extract user ID from the URL parameter
+    const lang = getLanguageFromHeaders(req.headers);
+
+    // Find the user by ID
+    const userToDelete = await User.findByPk(userIdToDelete);
+
+    if (!userToDelete) {
+      return res.status(404).json({ error: errorMessages[lang].userNotFound });
+    }
+
+    // Delete the user
+    await userToDelete.destroy();
+
+    res.json({ message: lang === 'ar' ? 'تم حذف المستخدم بنجاح.' : 'User deleted successfully.' });
+  } catch (error) {
+    console.error(error);
+    const lang = getLanguageFromHeaders(req.headers);
+    res.status(500).json({ error: errorMessages[lang].internalServerError });
+  }
+};
 
 
 
@@ -423,4 +512,7 @@ module.exports = {
   verifyOTP,
   getUserInfo,
   updateUserInfo,
+  updatePassword,
+  getAllUsers,
+  deleteUser
 };
